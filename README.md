@@ -1,2 +1,1 @@
-Testing GitCheers v0.1
-Testing GitCheers v0.1 #test
+Testing GitCheers v0.1 - Thrid try.
