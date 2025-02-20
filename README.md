@@ -1,6 +1,8 @@
-# GitCheers
+# GitCheers 
 
 GitCheers is a GitHub bot that tracks repository milestones and celebrates contributions by notifying teams when key events occur, such as merged pull requests, contributor milestones, and commit achievements.
+
+<img width='80px' src="https://github.com/user-attachments/assets/8279bf97-25a0-4e84-9a6e-ba0133bc6293">
 
 ## 🚀 Features
 - **Milestone Tracking**: Detects repository milestones
