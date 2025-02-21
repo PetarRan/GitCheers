@@ -8,26 +8,48 @@ app.use(express.urlencoded({ extended: true }));
 
 // Debug: Capture every request
 app.use((req, res, next) => {
-    console.log(`🔹 Received request: ${req.method} ${req.baseUrl}${req.path}`);
-    console.log('📩 Headers:', req.headers);
+    console.debug(`🔹 Received request: ${req.method} ${req.baseUrl}${req.path}`);
+    console.debug('📩 Headers:', req.headers);
     next();
 });
 
 // Catch-All POST Route (since GitHub might not be sending it to `/webhook`)
-app.post('*', (req, res) => {
-    console.log('✅ Webhook request received at CATCH-ALL POST route');
+app.post('*', async (req, res) => {
+    console.debug('✅ Webhook request received at CATCH-ALL POST route');
 
     const event = req.headers['x-github-event'];
-    console.log(`🔹 GitHub event type: ${event}`);
+    console.debug(`🔹 GitHub event type: ${event}`);
 
     if (event === 'pull_request' && req.body.pull_request) {
+        const prObject = req.body.pull_request;
         const action = req.body.action;
-        const prTitle = req.body.pull_request.title;
-        const prUser = req.body.pull_request.user.login;
 
-        console.log(`🎉 Pull request ${action}: "${prTitle}" by ${prUser}`);
+        const prNumber = prObject?.number
+        const prTitle = prObject.title;
+        const prUser = prObject.user.login;
+
+        const response = await fetch(`https://api.github.com/repos/{owner}/{repo}/pulls?state=closed`);
+        const prData = await response.json();
+
+        const totalMergedPrs = prData.filter( pr => pr.merged_at != null).length;
+        
+        if (mergedPrs % 100 === 0) {
+            // Post a milestone notification, e.g., a comment
+            const comment = `🎉 Congratulations! We've reached ${mergedPrs} merged PRs! 🎉`;
+            await fetch(`https://api.github.com/repos/{owner}/{repo}/issues/${prNumber}/comments`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ body: comment })
+            });
+        }
+
+
+        console.debug(`🎉 Pull request ${action}: #${prNumber} "${prTitle}" by ${prUser}`);
     } else {
-        console.log('⚠️ Received an event, but no pull request data found.');
+        console.debug('⚠️ Received an event, but no pull request data found.');
     }
 
     res.sendStatus(200);
