@@ -1,67 +1,72 @@
 require('dotenv').config();
 const express = require('express');
+const { createAppAuth } = require('@octokit/auth-app');
+const { Octokit } = require('@octokit/rest');
 const app = express();
 
-// Ensure Express correctly parses JSON and URL-encoded requests
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Debug: Capture every request
+// GH Auth, more in README.md (#auth)
+const auth = createAppAuth({
+  appId: process.env.APP_ID,
+  privateKey: process.env.PRIVATE_KEY,
+  clientId: process.env.CLIENT_ID,
+  clientSecret: process.env.CLIENT_SECRET,
+});
+
+const octokit = new Octokit({
+  authStrategy: createAppAuth,
+  auth: {
+    appId: process.env.APP_ID,
+    privateKey: process.env.PRIVATE_KEY,
+  },
+});
+
+// In-mem, serverless. N eed to initialize this crap.
+let milestones = {
+  mergedPRs: 0,
+  closedIssues: 0,
+};
+
+// debug logging
 app.use((req, res, next) => {
-    console.debug(`🔹 Received request: ${req.method} ${req.baseUrl}${req.path}`);
-    console.debug('📩 Headers:', req.headers);
-    next();
+  console.debug(`🔹 Received request: ${req.method} ${req.baseUrl}${req.path}`);
+  next();
 });
 
-// Catch-All POST Route (since GitHub might not be sending it to `/webhook`)
+// Webhook Handler, /webhook catch didn't work?
+// ToDo: Need to revisit
 app.post('*', async (req, res) => {
-    console.debug('✅ Webhook request received at CATCH-ALL POST route');
+  const event = req.headers['x-github-event'];
+  console.debug(`🔹 GitHub event type: ${event}`);
 
-    const event = req.headers['x-github-event'];
-    console.debug(`🔹 GitHub event type: ${event}`);
+  if (event === 'pull_request' && req.body.pull_request) {
+    const prObject = req.body.pull_request;
+    const action = req.body.action;
 
-    if (event === 'pull_request' && req.body.pull_request) {
-        const prObject = req.body.pull_request;
-        const action = req.body.action;
-
-        const prNumber = prObject?.number
-        const prTitle = prObject.title;
-        const prUser = prObject.user.login;
-
-        const response = await fetch(`https://api.github.com/repos/{owner}/{repo}/pulls?state=closed`);
-        const prData = await response.json();
-
-        const totalMergedPrs = prData.filter( pr => pr.merged_at != null).length;
-        
-        if (mergedPrs % 100 === 0) {
-            // Post a milestone notification, e.g., a comment
-            const comment = `🎉 Congratulations! We've reached ${mergedPrs} merged PRs! 🎉`;
-            await fetch(`https://api.github.com/repos/{owner}/{repo}/issues/${prNumber}/comments`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `token ${process.env.GITHUB_TOKEN}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ body: comment })
-            });
-        }
-
-
-        console.debug(`🎉 Pull request ${action}: #${prNumber} "${prTitle}" by ${prUser}`);
-    } else {
-        console.debug('⚠️ Received an event, but no pull request data found.');
+    if (action === 'closed' && prObject.merged_at) {
+      milestones.mergedPRs++;
+      if (milestones.mergedPRs % 100 === 0) {
+        const comment = `🎉 Congratulations! We've reached ${milestones.mergedPRs} merged PRs! 🎉`;
+        await octokit.issues.createComment({
+          owner: prObject.base.repo.owner.login,
+          repo: prObject.base.repo.name,
+          issue_number: prObject.number,
+          body: comment,
+        });
+      }
     }
+  }
 
-    res.sendStatus(200);
+  res.sendStatus(200);
 });
 
-// Debugging Route (to check if server is running)
 app.get('/test', (req, res) => {
-    res.send('✅ GitCheers bot is running!');
+  res.send('✅ GitCheers bot is running!');
 });
 
-// Start the Express server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 GitCheers bot listening on port ${PORT}`);
+  console.log(`🚀 GitCheers bot listening on port ${PORT}`);
 });
