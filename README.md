@@ -1,4 +1,4 @@
-<img width='50px' src="https://github.com/user-attachments/assets/a7d4e838-eb88-4a06-ac80-028489730c6f">
+<img width='50px' src="https://github.com/user-attachments/assets/42b07012-e65e-4b69-b1b9-b40681d1802a">
 
 # GitCheers 
 
