@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const webhookRoutes = require('./src/routes/webhook');
+const webhookRoutes = require('./routes/webhook');
 const app = express();
 
 app.use(express.json({ limit: '50mb' }));
